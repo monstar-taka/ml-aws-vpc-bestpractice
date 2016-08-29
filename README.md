@@ -6,45 +6,45 @@ AWSを使用した新規プロジェクトを始める上でまずやらなけ�
 ## 説明
 - 各リソースをわかりやすくネーミング
  - {project}-{vpc環境}-{リソース名}
-  - demo-develop-vpc
-  - demo-develop-front-subnet-1
-  - demo-develop-elb-sg
+    - demo-develop-vpc
+    - demo-develop-front-subnet-1
+    - demo-develop-elb-sg
 
 
 - IPレンジをわかりやすいものにする
   - 第2オクテットで環境が分かるようにする
-   - 10.0 => 本番
-   - 10.1 => ステージング
-   - 10.2 => 開発
+     - 10.0 => 本番
+     - 10.1 => ステージング
+     - 10.2 => 開発
   - 第3オクテットでサブネットが分かるようにする
-   - 10,20 => front
-   - 30,40 => app
-   - 50,60 => backend
+     - 10,20 => front
+     - 30,40 => app
+     - 50,60 => backend
   - 第3オクテットでAvailabilityZoneが分かるようにする
-   - 奇数 => ap-northeast-1b
-   - 偶数 => ap-northeast-1c
+     - 奇数 => ap-northeast-1b
+     - 偶数 => ap-northeast-1c
 
 
 - 3層サブネット構造（AWSのDDoS対策ホワイトペーパーでも推奨）
-  - フロントサブネット（DMZ）
-    - 用途：ELB、SSH bastionインスタンス、deployインスタンス
-  - アプリケーションサブネット（private）
-    - 用途：Web/Appインスタンス
-  - バックエンドサブネット（private）
-    - 用途：RDSインスタンス、ElastiCacheクラスター、Batchサーバ
+    - フロントサブネット（DMZ）
+      - 用途：ELB、SSH bastionインスタンス、deployインスタンス
+    - アプリケーションサブネット（private）
+      - 用途：Web/Appインスタンス
+    - バックエンドサブネット（private）
+      - 用途：RDSインスタンス、ElastiCacheクラスター、Batchサーバ
 
 
 - 外部連携APIなどを考慮に入れて、NATを通じてインターネット外に出て行くルーティング
-  - 外部APIでは接続元のIPを制限することは少なくない
-  - AutoScalingでは接続元IPは固定できない
-  - privateサブネットのアプリケーションサブネットにWeb/Apサーバを配置してアウトバウンドはNATを経由するルーティングならば、提供元API業者にもNATのグローバルIPを伝えるだけでよい
+    - 外部APIでは接続元のIPを制限することは少なくない
+    - AutoScalingでは接続元IPは固定できない
+    - privateサブネットのアプリケーションサブネットにWeb/Apサーバを配置してアウトバウンドはNATを経由するルーティングならば、提供元API業者にもNATのグローバルIPを伝えるだけでよい
 
 
 - NATの冗長化
-  - 本番環境では冗長化するためにそれぞれのAZに用意
-  - NATにはグローバルIPを付与する（ElasticIP）
-    - ElasticIPの上限はデフォルトは5つまでなので、プロジェクトでもっと必要な場合は上限申請
-  - 開発環境とステージング環境ではコスト削減のためシングル
+    - 本番環境では冗長化するためにそれぞれのAZに用意
+    - NATにはグローバルIPを付与する（ElasticIP）
+      - ElasticIPの上限はデフォルトは5つまでなので、プロジェクトでもっと必要な場合は上限申請
+    - 開発環境とステージング環境ではコスト削減のためシングル
 
 
 

@@ -1,0 +1,387 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Develop & Staging VPC Bestpractice Template For MonstarLab,Inc.",
+  "Parameters": {
+    "AZ1" : {
+        "Description" : "input Availability Zone 1",
+        "Type"        : "AWS::EC2::AvailabilityZone::Name"
+    },
+    "AZ2" : {
+        "Description" : "input Availability Zone 2",
+        "Type"        : "AWS::EC2::AvailabilityZone::Name"
+    },
+    "VPCCIDR": {
+      "AllowedPattern" : "^(\\d|[01]?\\d\\d|2[0-4]\\d|25[0-5])\\.(\\d|[01]?\\d\\d|2[0-4]\\d|25[0-5])",
+      "Default"        : "10.2",
+      "Description"    : "VPC CIDR (*.*.0.0/16) for example, staging environment sets it with '10.1', develop environment sets it with '10.2'",
+      "Type"           : "String"
+    },
+    "ProjectName": {
+      "Default"        : "",
+      "Description"    : "input your Project Name",
+      "Type"           : "String"
+    },
+    "VPCName": {
+      "Description": "select your VPC Name",
+      "Type": "String",
+      "Default": "develop",
+      "AllowedValues" : [
+        "develop",
+        "staging"
+       ],
+      "ConstraintDescription" : ""
+    },
+    "SSHLocation" : {
+      "Description" : " The IP address range that can be used to SSH to the EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    }
+  },
+  "Resources": {
+    "vpc00": {
+      "Type"       : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock"          : { "Fn::Join": [ "", [ { "Ref": "VPCCIDR" }, ".0.0/16" ] ] },
+        "EnableDnsSupport" : "true",
+        "EnableDnsHostnames" : "true",
+        "InstanceTenancy" : "default",
+        "Tags" : [
+          {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId" } },
+          {"Key" : "Network", "Value" : "Public" },
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "vpc" ] ] } }
+        ]
+      }
+    },
+    "eip0001": {
+      "Type"       : "AWS::EC2::EIP",
+      "Properties" : { "Domain" : "vpc" }
+    },
+    "frontSubnetPub1": {
+      "Type"       : "AWS::EC2::Subnet",
+      "Properties" : {
+        "CidrBlock"        : { "Fn::Join": [ "", [ { "Ref": "VPCCIDR" }, ".10.0/24" ] ] },
+        "AvailabilityZone" : { "Ref" : "AZ1" },
+        "VpcId"            : { "Ref": "vpc00" },
+        "MapPublicIpOnLaunch" : true,
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "front-subnet-1" ] ] } } ]
+      }
+    },
+    "frontSubnetPub2": {
+      "Type"       : "AWS::EC2::Subnet",
+      "Properties" : {
+        "CidrBlock"        : { "Fn::Join": [ "", [ { "Ref": "VPCCIDR" }, ".20.0/24" ] ] },
+        "AvailabilityZone" : { "Ref" : "AZ2" },
+        "VpcId"            : { "Ref": "vpc00" },
+        "MapPublicIpOnLaunch" : true,
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "front-subnet-2" ] ] } } ]
+      }
+    },
+    "applicationSubnetPrv1": {
+      "Type"       : "AWS::EC2::Subnet",
+      "Properties" : {
+        "CidrBlock"        : { "Fn::Join": [ "", [ { "Ref": "VPCCIDR" }, ".30.0/24" ] ] },
+        "AvailabilityZone" : { "Ref" : "AZ1" },
+        "VpcId"            : { "Ref": "vpc00" },
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "app-subnet-1" ] ] } } ]
+      }
+    },
+    "applicationSubnetPrv2": {
+      "Type"       : "AWS::EC2::Subnet",
+      "Properties" : {
+        "CidrBlock"        : { "Fn::Join": [ "", [ { "Ref": "VPCCIDR" }, ".40.0/24" ] ] },
+        "AvailabilityZone" : { "Ref" : "AZ2" },
+        "VpcId"            : { "Ref": "vpc00" },
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "app-subnet-2" ] ] } } ]
+      }
+    },
+    "backendSubnetPrv1": {
+      "Type"       : "AWS::EC2::Subnet",
+      "Properties" : {
+        "CidrBlock"        : { "Fn::Join": [ "", [ { "Ref": "VPCCIDR" }, ".50.0/24" ] ] },
+        "AvailabilityZone" : { "Ref" : "AZ1" },
+        "VpcId"            : { "Ref": "vpc00" },
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "backend-subnet-1" ] ] } } ]
+      }
+    },
+    "backendSubnetPrv2": {
+      "Type"       : "AWS::EC2::Subnet",
+      "Properties" : {
+        "CidrBlock"        : { "Fn::Join": [ "", [ { "Ref": "VPCCIDR" }, ".60.0/24" ] ] },
+        "AvailabilityZone" : { "Ref" : "AZ2" },
+        "VpcId"            : { "Ref": "vpc00" },
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "backend-subnet-2" ] ] } } ]
+      }
+    },
+    "Nat1": {
+      "Type"       : "AWS::EC2::NatGateway",
+      "Properties" : {
+        "AllocationId"     : { "Fn::GetAtt" : ["eip0001", "AllocationId"] },
+        "SubnetId"         : { "Ref" : "frontSubnetPub1" }
+      },
+      "DependsOn"  : "eip0001"
+    },
+    "IGW": {
+      "Type"       : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [
+          {"Key" : "Application", "Value" : { "Ref" : "AWS::StackId" } },
+          {"Key" : "Network", "Value" : "Public" },
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "igw" ] ] } }
+        ]
+      }
+    },
+    "RouteTablePub1": {
+      "Type"           : "AWS::EC2::RouteTable",
+      "Properties"     : {
+        "VpcId"            : { "Ref": "vpc00" },
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "public-rt-1" ] ] } } ]
+      }
+    },
+    "RouteTablePub2": {
+      "Type"           : "AWS::EC2::RouteTable",
+      "Properties"     : {
+        "VpcId"            : { "Ref": "vpc00" },
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "public-rt-2" ] ] } } ]
+      }
+    },
+    "RouteTablePrv1": {
+      "Type"           : "AWS::EC2::RouteTable",
+      "Properties"     : {
+        "VpcId"            : { "Ref": "vpc00" },
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "private-rt-1" ] ] } } ]
+      }
+    },
+    "RouteTablePrv2": {
+      "Type"           : "AWS::EC2::RouteTable",
+      "Properties"     : {
+        "VpcId"            : { "Ref": "vpc00" },
+        "Tags"             : [ { "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "private-rt-2" ] ] } } ]
+      }
+    },
+    "gw1": {
+      "Type"           : "AWS::EC2::VPCGatewayAttachment",
+      "Properties"     : {
+        "VpcId"             : { "Ref": "vpc00" },
+        "InternetGatewayId" : { "Ref": "IGW" }
+      }
+    },
+    "frontSubnetRoutePub1": {
+      "Type"           : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties"     : {
+        "RouteTableId"     : { "Ref": "RouteTablePub1" },
+        "SubnetId"         : { "Ref": "frontSubnetPub1" }
+      }
+    },
+    "frontSubnetRoutePub2": {
+      "Type"           : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties"     : {
+        "RouteTableId"     : { "Ref": "RouteTablePub2" },
+        "SubnetId"         : { "Ref": "frontSubnetPub2" }
+      }
+    },
+    "applicationRoutePrv1": {
+      "Type"           : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties"     : {
+        "RouteTableId"     : { "Ref": "RouteTablePrv1" },
+        "SubnetId"         : { "Ref": "applicationSubnetPrv1" }
+      }
+    },
+    "applicationRoutePrv2": {
+      "Type"           : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties"     : {
+        "RouteTableId"     : { "Ref": "RouteTablePrv2" },
+        "SubnetId"         : { "Ref": "applicationSubnetPrv2" }
+      }
+    },
+    "backendSubnetRoutePrv1": {
+      "Type"           : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties"     : {
+        "RouteTableId"     : { "Ref": "RouteTablePrv1" },
+        "SubnetId"         : { "Ref": "backendSubnetPrv1" }
+      }
+    },
+    "backendSubnetRoutePrv2": {
+      "Type"           : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties"     : {
+        "RouteTableId"     : { "Ref": "RouteTablePrv2" },
+        "SubnetId"         : { "Ref": "backendSubnetPrv2" }
+      }
+    },
+    "routePub101": {
+      "Type"           : "AWS::EC2::Route",
+      "Properties"     : {
+        "DestinationCidrBlock"  : "0.0.0.0/0",
+        "RouteTableId"          : { "Ref": "RouteTablePub1" },
+        "GatewayId"             : { "Ref": "IGW" }
+      },
+      "DependsOn"      : "gw1"
+    },
+    "routePub201": {
+      "Type"           : "AWS::EC2::Route",
+      "Properties"     : {
+        "DestinationCidrBlock"  : "0.0.0.0/0",
+        "RouteTableId"          : { "Ref": "RouteTablePub2" },
+        "GatewayId"             : { "Ref": "IGW" }
+      },
+      "DependsOn"      : "gw1"
+    },
+    "routePrv101": {
+      "Type"           : "AWS::EC2::Route",
+      "Properties"     : {
+        "DestinationCidrBlock"  : "0.0.0.0/0",
+        "RouteTableId"          : { "Ref": "RouteTablePrv1" },
+        "NatGatewayId"          : { "Ref" : "Nat1" }
+      }
+    },
+    "routePrv201": {
+      "Type"           : "AWS::EC2::Route",
+      "Properties"     : {
+        "DestinationCidrBlock"  : "0.0.0.0/0",
+        "RouteTableId"          : { "Ref": "RouteTablePrv2" },
+        "NatGatewayId"          : { "Ref" : "Nat1" }
+      }
+    },
+    "dchpOpt": {
+      "Type"           : "AWS::EC2::DHCPOptions",
+      "Properties"     : {
+        "DomainName"           : "ec2.internal.com",
+        "DomainNameServers"    : [ "AmazonProvidedDNS"]
+      }
+    },
+    "dchpAssoc": {
+      "Type"           : "AWS::EC2::VPCDHCPOptionsAssociation",
+      "Properties"     : {
+        "VpcId"            : { "Ref": "vpc00" },
+        "DhcpOptionsId"    : {"Ref" : "dchpOpt" }
+      },
+      "DependsOn"      : "dchpOpt"
+    },
+    "SSHSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : { "Ref" : "vpc00" },
+        "GroupDescription" : "Enable SSH access via port 22",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "22",  "ToPort" : "22",  "CidrIp" : { "Ref" : "SSHLocation" } }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "ssh-only" ] ] } }
+        ]
+      }
+    },
+    "ELBSecurityGroup1" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : { "Ref" : "vpc00" },
+        "GroupDescription" : "ELB SECURITY GROUP",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0" },
+          { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0" }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "elb-sg" ] ] } }
+        ]
+      }
+    },
+    "ELBSecurityGroup2" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : { "Ref" : "vpc00" },
+        "GroupDescription" : "CMS ELB SECURITY GROUP",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0" },
+          { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0" }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "cms-elb-sg" ] ] } }
+        ]
+      }
+    },
+    "WEBAPPSecurityGroup1" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : {"Ref" : "vpc00"},
+        "GroupDescription" : "WEBAPP SECURITY GROUP",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "SourceSecurityGroupId": {"Fn::GetAtt": ["ELBSecurityGroup1", "GroupId"]}},
+          { "IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "SourceSecurityGroupId": {"Fn::GetAtt": ["SSHSecurityGroup", "GroupId"]}}
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "web-sg" ] ] } }
+        ]
+      }
+    },
+    "WEBAPPSecurityGroup2" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : {"Ref" : "vpc00"},
+        "GroupDescription" : "CMS WEBAPP SECURITY GROUP",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "SourceSecurityGroupId": {"Fn::GetAtt": ["ELBSecurityGroup2", "GroupId"]}},
+          { "IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "SourceSecurityGroupId": {"Fn::GetAtt": ["SSHSecurityGroup", "GroupId"]}}
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "cms-web-sg" ] ] } }
+        ]
+      }
+    },
+    "DBSecurityGroupForMySQL" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : {"Ref" : "vpc00"},
+        "GroupDescription" : "DB SECURITY GROUP for MySQL",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "3306", "ToPort" : "3306", "SourceSecurityGroupId": {"Fn::GetAtt": ["WEBAPPSecurityGroup1", "GroupId"]}},
+          { "IpProtocol" : "tcp", "FromPort" : "3306", "ToPort" : "3306", "SourceSecurityGroupId": {"Fn::GetAtt": ["WEBAPPSecurityGroup2", "GroupId"]}}
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "mysql-db-sg" ] ] } }
+        ]
+      }
+    },
+    "DBSecurityGroupForPostgreSQL" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : {"Ref" : "vpc00"},
+        "GroupDescription" : "DB SECURITY GROUP for PostgreSQL",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "5432", "ToPort" : "5432", "SourceSecurityGroupId": {"Fn::GetAtt": ["WEBAPPSecurityGroup1", "GroupId"]}},
+          { "IpProtocol" : "tcp", "FromPort" : "5432", "ToPort" : "5432", "SourceSecurityGroupId": {"Fn::GetAtt": ["WEBAPPSecurityGroup2", "GroupId"]}}
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "postgre-db-sg" ] ] } }
+        ]
+      }
+    },
+    "CACHESecurityGroupForMemcached" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : {"Ref" : "vpc00"},
+        "GroupDescription" : "CACHE SECURITY GROUP for Memcached",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "11212", "ToPort" : "11212", "SourceSecurityGroupId": {"Fn::GetAtt": ["WEBAPPSecurityGroup1", "GroupId"]}}
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "memcached-cache-sg" ] ] } }
+        ]
+      }
+    },
+    "CACHESecurityGroupforRedis" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : {"Ref" : "vpc00"},
+        "GroupDescription" : "CACHE SECURITY GROUP for Redis",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "6379", "ToPort" : "6379", "SourceSecurityGroupId": {"Fn::GetAtt": ["WEBAPPSecurityGroup1", "GroupId"]}}
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join": [ "-", [ { "Ref": "ProjectName" },{ "Ref": "VPCName" }, "redis-cache-sg" ] ] } }
+        ]
+      }
+    }
+  }
+}

@@ -1,24 +1,6 @@
-resource "aws_security_group" "ssh-only" {
-  name              = "${var.ssh-only-name}"
-  description       = "${var.ssh-only-name}"
-  vpc_id            = "${aws_vpc.vpc.id}"
-  ingress {
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    cidr_blocks     = ["0.0.0.0/0"]
-  }
-  egress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    cidr_blocks     = ["0.0.0.0/0"]
-  }
-  tags {
-    Name            = "${var.ssh-only-name}"
-  }
-}
-
+#--------------------------------------------------------------
+# Security Group
+#--------------------------------------------------------------
 resource "aws_security_group" "elb-sg" {
   name              = "${var.elb-sg-name}"
   description       = "${var.elb-sg-name}"
@@ -83,12 +65,6 @@ resource "aws_security_group" "web-sg" {
     protocol        = "tcp"
     security_groups = ["${aws_security_group.elb-sg.id}"]
   }
-  ingress {
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = ["${aws_security_group.ssh-only.id}"]
-  }
   egress {
     from_port       = 0
     to_port         = 0
@@ -109,12 +85,6 @@ resource "aws_security_group" "cms-web-sg" {
     to_port         = 80
     protocol        = "tcp"
     security_groups = ["${aws_security_group.cms-elb-sg.id}"]
-  }
-  ingress {
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = ["${aws_security_group.ssh-only.id}"]
   }
   egress {
     from_port       = 0

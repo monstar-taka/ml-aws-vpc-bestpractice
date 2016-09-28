@@ -1,0 +1,546 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Develop & Staging VPC Bestpractice Template For MonstarLab,Inc.
+Parameters:
+  AZ1:
+    Description: input Availability Zone 1
+    Type: AWS::EC2::AvailabilityZone::Name
+  AZ2:
+    Description: input Availability Zone 2
+    Type: AWS::EC2::AvailabilityZone::Name
+  ProjectName:
+    Default: ""
+    Description: input your Project Name
+    Type: String
+  VPCCIDR:
+    AllowedPattern: ^(\d|[01]?\d\d|2[0-4]\d|25[0-5])\.(\d|[01]?\d\d|2[0-4]\d|25[0-5])
+    Default: "10.2"
+    Description: VPC CIDR (*.*.0.0/16) for example, staging environment sets it with
+      '10.1', develop environment sets it with '10.2'
+    Type: String
+  VPCName:
+    AllowedValues:
+    - develop
+    - staging
+    ConstraintDescription: ""
+    Default: develop
+    Description: select your VPC Name
+    Type: String
+Resources:
+  CACHESecurityGroupForMemcached:
+    Properties:
+      GroupDescription: CACHE SECURITY GROUP for Memcached
+      SecurityGroupIngress:
+      - FromPort: "11212"
+        IpProtocol: tcp
+        SourceSecurityGroupId:
+          Fn::GetAtt:
+          - WEBAPPSecurityGroup1
+          - GroupId
+        ToPort: "11212"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - memcached-cache-sg
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::SecurityGroup
+  CACHESecurityGroupforRedis:
+    Properties:
+      GroupDescription: CACHE SECURITY GROUP for Redis
+      SecurityGroupIngress:
+      - FromPort: "6379"
+        IpProtocol: tcp
+        SourceSecurityGroupId:
+          Fn::GetAtt:
+          - WEBAPPSecurityGroup1
+          - GroupId
+        ToPort: "6379"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - redis-cache-sg
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::SecurityGroup
+  DBSecurityGroupForMySQL:
+    Properties:
+      GroupDescription: DB SECURITY GROUP for MySQL
+      SecurityGroupIngress:
+      - FromPort: "3306"
+        IpProtocol: tcp
+        SourceSecurityGroupId:
+          Fn::GetAtt:
+          - WEBAPPSecurityGroup1
+          - GroupId
+        ToPort: "3306"
+      - FromPort: "3306"
+        IpProtocol: tcp
+        SourceSecurityGroupId:
+          Fn::GetAtt:
+          - WEBAPPSecurityGroup2
+          - GroupId
+        ToPort: "3306"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - mysql-db-sg
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::SecurityGroup
+  DBSecurityGroupForPostgreSQL:
+    Properties:
+      GroupDescription: DB SECURITY GROUP for PostgreSQL
+      SecurityGroupIngress:
+      - FromPort: "5432"
+        IpProtocol: tcp
+        SourceSecurityGroupId:
+          Fn::GetAtt:
+          - WEBAPPSecurityGroup1
+          - GroupId
+        ToPort: "5432"
+      - FromPort: "5432"
+        IpProtocol: tcp
+        SourceSecurityGroupId:
+          Fn::GetAtt:
+          - WEBAPPSecurityGroup2
+          - GroupId
+        ToPort: "5432"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - postgre-db-sg
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::SecurityGroup
+  ELBSecurityGroup1:
+    Properties:
+      GroupDescription: ELB SECURITY GROUP
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: "80"
+        IpProtocol: tcp
+        ToPort: "80"
+      - CidrIp: 0.0.0.0/0
+        FromPort: "443"
+        IpProtocol: tcp
+        ToPort: "443"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - elb-sg
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::SecurityGroup
+  ELBSecurityGroup2:
+    Properties:
+      GroupDescription: CMS ELB SECURITY GROUP
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: "80"
+        IpProtocol: tcp
+        ToPort: "80"
+      - CidrIp: 0.0.0.0/0
+        FromPort: "443"
+        IpProtocol: tcp
+        ToPort: "443"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - cms-elb-sg
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::SecurityGroup
+  IGW:
+    Properties:
+      Tags:
+      - Key: Application
+        Value:
+          Ref: AWS::StackId
+      - Key: Network
+        Value: Public
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - igw
+    Type: AWS::EC2::InternetGateway
+  Nat1:
+    DependsOn: eip0001
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+        - eip0001
+        - AllocationId
+      SubnetId:
+        Ref: frontSubnetPub1
+    Type: AWS::EC2::NatGateway
+  RouteTablePrv1:
+    Properties:
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - private-rt-1
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::RouteTable
+  RouteTablePrv2:
+    Properties:
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - private-rt-2
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::RouteTable
+  RouteTablePub1:
+    Properties:
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - public-rt-1
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::RouteTable
+  RouteTablePub2:
+    Properties:
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - public-rt-2
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::RouteTable
+  WEBAPPSecurityGroup1:
+    Properties:
+      GroupDescription: WEBAPP SECURITY GROUP
+      SecurityGroupIngress:
+      - FromPort: "80"
+        IpProtocol: tcp
+        SourceSecurityGroupId:
+          Fn::GetAtt:
+          - ELBSecurityGroup1
+          - GroupId
+        ToPort: "80"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - web-sg
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::SecurityGroup
+  WEBAPPSecurityGroup2:
+    Properties:
+      GroupDescription: CMS WEBAPP SECURITY GROUP
+      SecurityGroupIngress:
+      - FromPort: "80"
+        IpProtocol: tcp
+        SourceSecurityGroupId:
+          Fn::GetAtt:
+          - ELBSecurityGroup2
+          - GroupId
+        ToPort: "80"
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - cms-web-sg
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::SecurityGroup
+  applicationRoutePrv1:
+    Properties:
+      RouteTableId:
+        Ref: RouteTablePrv1
+      SubnetId:
+        Ref: applicationSubnetPrv1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  applicationRoutePrv2:
+    Properties:
+      RouteTableId:
+        Ref: RouteTablePrv2
+      SubnetId:
+        Ref: applicationSubnetPrv2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  applicationSubnetPrv1:
+    Properties:
+      AvailabilityZone:
+        Ref: AZ1
+      CidrBlock:
+        Fn::Join:
+        - ""
+        - - Ref: VPCCIDR
+          - .30.0/24
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - app-subnet-1
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::Subnet
+  applicationSubnetPrv2:
+    Properties:
+      AvailabilityZone:
+        Ref: AZ2
+      CidrBlock:
+        Fn::Join:
+        - ""
+        - - Ref: VPCCIDR
+          - .40.0/24
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - app-subnet-2
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::Subnet
+  backendSubnetPrv1:
+    Properties:
+      AvailabilityZone:
+        Ref: AZ1
+      CidrBlock:
+        Fn::Join:
+        - ""
+        - - Ref: VPCCIDR
+          - .50.0/24
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - backend-subnet-1
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::Subnet
+  backendSubnetPrv2:
+    Properties:
+      AvailabilityZone:
+        Ref: AZ2
+      CidrBlock:
+        Fn::Join:
+        - ""
+        - - Ref: VPCCIDR
+          - .60.0/24
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - backend-subnet-2
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::Subnet
+  backendSubnetRoutePrv1:
+    Properties:
+      RouteTableId:
+        Ref: RouteTablePrv1
+      SubnetId:
+        Ref: backendSubnetPrv1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  backendSubnetRoutePrv2:
+    Properties:
+      RouteTableId:
+        Ref: RouteTablePrv2
+      SubnetId:
+        Ref: backendSubnetPrv2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  dchpAssoc:
+    DependsOn: dchpOpt
+    Properties:
+      DhcpOptionsId:
+        Ref: dchpOpt
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::VPCDHCPOptionsAssociation
+  dchpOpt:
+    Properties:
+      DomainName: ec2.internal.com
+      DomainNameServers:
+      - AmazonProvidedDNS
+    Type: AWS::EC2::DHCPOptions
+  eip0001:
+    Properties:
+      Domain: vpc
+    Type: AWS::EC2::EIP
+  frontSubnetPub1:
+    Properties:
+      AvailabilityZone:
+        Ref: AZ1
+      CidrBlock:
+        Fn::Join:
+        - ""
+        - - Ref: VPCCIDR
+          - .10.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - front-subnet-1
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::Subnet
+  frontSubnetPub2:
+    Properties:
+      AvailabilityZone:
+        Ref: AZ2
+      CidrBlock:
+        Fn::Join:
+        - ""
+        - - Ref: VPCCIDR
+          - .20.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - front-subnet-2
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::Subnet
+  frontSubnetRoutePub1:
+    Properties:
+      RouteTableId:
+        Ref: RouteTablePub1
+      SubnetId:
+        Ref: frontSubnetPub1
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  frontSubnetRoutePub2:
+    Properties:
+      RouteTableId:
+        Ref: RouteTablePub2
+      SubnetId:
+        Ref: frontSubnetPub2
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  gw1:
+    Properties:
+      InternetGatewayId:
+        Ref: IGW
+      VpcId:
+        Ref: vpc00
+    Type: AWS::EC2::VPCGatewayAttachment
+  routePrv101:
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: Nat1
+      RouteTableId:
+        Ref: RouteTablePrv1
+    Type: AWS::EC2::Route
+  routePrv201:
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: Nat1
+      RouteTableId:
+        Ref: RouteTablePrv2
+    Type: AWS::EC2::Route
+  routePub101:
+    DependsOn: gw1
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: IGW
+      RouteTableId:
+        Ref: RouteTablePub1
+    Type: AWS::EC2::Route
+  routePub201:
+    DependsOn: gw1
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: IGW
+      RouteTableId:
+        Ref: RouteTablePub2
+    Type: AWS::EC2::Route
+  vpc00:
+    Properties:
+      CidrBlock:
+        Fn::Join:
+        - ""
+        - - Ref: VPCCIDR
+          - .0.0/16
+      EnableDnsHostnames: "true"
+      EnableDnsSupport: "true"
+      InstanceTenancy: default
+      Tags:
+      - Key: Application
+        Value:
+          Ref: AWS::StackId
+      - Key: Network
+        Value: Public
+      - Key: Name
+        Value:
+          Fn::Join:
+          - '-'
+          - - Ref: ProjectName
+            - Ref: VPCName
+            - vpc
+    Type: AWS::EC2::VPC
+
